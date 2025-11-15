@@ -1,20 +1,39 @@
 import time
 from socket import *
 
+# Endereço do servidor
 serverName = 'localhost'
+
+# Porta do servidor
 serverPort = 12000
 
+# Cria um socket UDP (AF_INET = IPV4, SOCKGRAM = Protocolo UDP)
 clientSocket = socket(AF_INET, SOCK_DGRAM)
+
+# Timeout de 1 segundo, se nao responder lança exception
 clientSocket.settimeout(1)
 
+# Armazena os tempos de resposta bem sucedidos
 rtts = []
+
+# Pacotes enviados
 sent_packets = 10
+
+# Pacotes perdidos
 received_packets = 0
 
-for sequence_number in range(1, 11):
+# Loop de Pings
+for sequence_number in range(1, sent_packets+1):
+
+    # Captura o momento exato do envio
     send_time = time.time()
+
+    # Formata a mensagem para o padrão especificado
     message = f"Ping {sequence_number} {send_time}"
+
     try:
+
+        # Envia o pacote (sem conexão estabelecida previamente)
         clientSocket.sendto(message.encode(), (serverName, serverPort))
         modifiedMessage, serverAddress = clientSocket.recvfrom(1024)
         recv_time = time.time()
