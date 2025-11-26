@@ -1,51 +1,58 @@
 import time
 from socket import *
 
-# Endereço do servidor
+# define o endereço do servidor
 serverName = 'localhost'
 
 # Porta do servidor
 serverPort = 12000
 
-# Cria um socket UDP (AF_INET = IPV4, SOCKGRAM = Protocolo UDP)
+# cria o socket do cliente
+# AF_INET = IPv4
+# SOCK_DGRAM = UDP (datagramas)
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 
-# Timeout de 1 segundo, se nao responder lança exception
+# se o server nao comunicar dentro de 1 segundo, uma exception vai estourar.
 clientSocket.settimeout(1)
 
-# Armazena os tempos de resposta bem sucedidos
-rtts = []
+rtts = []  # lista para guardar os tempos de cada ping que deu certo
+sent_packets = 10  # numero de pings que vamos tentar enviar
+received_packets = 0  # contador de quantos voltaram
 
-# Pacotes enviados
-sent_packets = 10
+for sequence_number in range(1, sent_packets + 1):
 
-# Pacotes perdidos
-received_packets = 0
-
-# Loop de Pings
-for sequence_number in range(1, sent_packets+1):
-
-    # Captura o momento exato do envio
+    # hora de envio
     send_time = time.time()
 
-    # Formata a mensagem para o padrão especificado
     message = f"Ping {sequence_number} {send_time}"
 
     try:
-
-        # Envia o pacote (sem conexão estabelecida previamente)
+        # encode = transforma a string em bytes para trafegar pela rede
+        # sendto = envia o pacote para o endereco e porta definidos
         clientSocket.sendto(message.encode(), (serverName, serverPort))
+
+        # recvfrom = o script aguarda a resposta
+        # 1024 = tamanho do buffer (tamanho máximo em bytes do pacote que aceitamos receber)
         modifiedMessage, serverAddress = clientSocket.recvfrom(1024)
+
+        # hora de chegada.
         recv_time = time.time()
+
+        # RTT = hora da chegada - hora do envio
         rtt = recv_time - send_time
         rtts.append(rtt)
         received_packets += 1
+
         print(f"Resposta do servidor: {modifiedMessage.decode()}")
         print(f"RTT = {rtt:.6f} segundos")
+
     except timeout:
         print("Request timed out")
+
+    # espera um pouquinho antes do próximo ping
     time.sleep(0.3)
 
+# fecha o socket liberando a porta efemera
 clientSocket.close()
 
 if rtts:
@@ -57,7 +64,6 @@ else:
 
 packet_loss = ((sent_packets - received_packets) / sent_packets) * 100
 
-print("\n--- Estatísticas do Ping ---")
 print(f"Pacotes enviados: {sent_packets}")
 print(f"Pacotes recebidos: {received_packets}")
 print(f"Pacotes perdidos: {sent_packets - received_packets} ({packet_loss:.1f}%)")

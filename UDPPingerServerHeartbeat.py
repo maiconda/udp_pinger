@@ -1,53 +1,34 @@
-import random
 import time
 from socket import *
 
 serverSocket = socket(AF_INET, SOCK_DGRAM)
 serverSocket.bind(('', 12000))
 
-expected_heartbeats = 10
-received_heartbeats = 0
-delays = []
-last_seq = 0
-lost_heartbeats = 0
+# se ficar mais de 1.5 sem receber nada, gera uma exception (faz sentido no localhost)
+serverSocket.settimeout(1.5)
 
-print("Servidor Heartbeat aguardando pacotes...")
+strikes = 0  # falhas consecutivas
+MAX_STRIKES = 3  # numero de falhas para acusar um erro critico
 
-while received_heartbeats < expected_heartbeats:
-    rand = random.randint(0, 9)
-    message, address = serverSocket.recvfrom(1024)
-    if rand < 3:
-        continue
-    recv_time = time.time()
-    decoded = message.decode()
-    parts = decoded.split()
-    seq = int(parts[1])
-    sent_time = float(parts[2])
-    delay = recv_time - sent_time
+while True:
+    try:
+        # mensagem recebida
+        message, address = serverSocket.recvfrom(1024)
 
-    if last_seq != 0 and seq > last_seq + 1:
-        lost = seq - last_seq - 1
-        lost_heartbeats += lost
-        print(f"Heartbeats perdidos: {lost} (entre {last_seq} e {seq})")
+        # ao receber zera strikes
+        if strikes > 0:
+            print(f"[{time.strftime('%H:%M:%S')}] cliente recuperado")
+        strikes = 0
 
-    print(f"Heartbeat recebido: seq={seq}, atraso={delay:.6f} segundos")
-    delays.append(delay)
-    last_seq = seq
-    received_heartbeats += 1
+        recv_time = time.time()
+        decoded = message.decode()
 
-if delays:
-    min_delay = min(delays)
-    max_delay = max(delays)
-    avg_delay = sum(delays) / len(delays)
-else:
-    min_delay = max_delay = avg_delay = 0
+        print(f"[{time.strftime('%H:%M:%S')}] Mensagem: {decoded}")
 
-packet_loss = ((expected_heartbeats - received_heartbeats + lost_heartbeats) / expected_heartbeats) * 100
+    except timeout:
+        strikes += 1
 
-print("\n--- Estatísticas do Heartbeat ---")
-print(f"Heartbeats esperados: {expected_heartbeats}")
-print(f"Heartbeats recebidos: {received_heartbeats}")
-print(f"Heartbeats perdidos: {expected_heartbeats - received_heartbeats + lost_heartbeats} ({packet_loss:.1f}%)")
-print(f"Atraso mínimo = {min_delay:.6f} segundos")
-print(f"Atraso máximo = {max_delay:.6f} segundos")
-print(f"Atraso médio  = {avg_delay:.6f} segundos")
+        print(f"[{time.strftime('%H:%M:%S')}] timeout ({strikes}/{MAX_STRIKES})")
+
+        if strikes >= MAX_STRIKES:
+            print(f"[{time.strftime('%H:%M:%S')}] erro critico")
